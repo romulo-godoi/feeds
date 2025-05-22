@@ -237,18 +237,61 @@ let feedSources = [];
                 cardDiv.className = 'feed-card cursor-pointer rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col p-4 relative';
                 
                 cardDiv.style.backgroundColor = config.CARD_COLORS[cardIndex % config.CARD_COLORS.length];
-                if (storageModule.isItemRead(item)) cardDiv.classList.add('is-read'); // External call to storageModule
+                if (storageModule.isItemRead(item)) cardDiv.classList.add('is-read');
                 cardDiv.addEventListener('click', () => this.openModal(item));
 
-                let imageUrl = item.thumbnail || (item.enclosure && item.enclosure.link && item.enclosure.type && item.enclosure.type.startsWith('image/') ? item.enclosure.link : null);
-                if (!imageUrl && item.feedImage) imageUrl = item.feedImage;
-                if (!imageUrl && item.description) {
-                    try {
-                        const tempDiv = document.createElement('div');
-                        tempDiv.innerHTML = DOMPurify.sanitize(item.description, { USE_PROFILES: { html: true } }); 
-                        const firstImgTag = tempDiv.querySelector('img');
-                        if (firstImgTag && firstImgTag.src) imageUrl = firstImgTag.src;
-                    } catch (e) { /* Silently ignore */ }
+                let imageUrl = null;
+                const commonTinyPixelDataUri1 = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+                const commonTinyPixelDataUri2 = "data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="; // Common variant
+                const minImageWidth = 50; // Minimum width for an image to be considered non-decorative
+
+                // 1. Check item.thumbnail
+                if (item.thumbnail && typeof item.thumbnail === 'string' && item.thumbnail.trim() !== '') {
+                    imageUrl = item.thumbnail;
+                }
+
+                // 2. Check item.enclosure
+                if (!imageUrl && item.enclosure && typeof item.enclosure.link === 'string' && item.enclosure.link.trim() !== '' && typeof item.enclosure.type === 'string' && item.enclosure.type.startsWith('image/')) {
+                    imageUrl = item.enclosure.link;
+                }
+
+                // 3. Parse HTML from item.content or item.description
+                if (!imageUrl) {
+                    const htmlContentToParse = (item.content && typeof item.content === 'string' && item.content.trim() !== '') ? item.content : 
+                                             (item.description && typeof item.description === 'string' && item.description.trim() !== '') ? item.description : null;
+                    
+                    if (htmlContentToParse) {
+                        try {
+                            const sanitizedHtml = DOMPurify.sanitize(htmlContentToParse, { USE_PROFILES: { html: true } });
+                            const tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = sanitizedHtml;
+                            const imgTags = tempDiv.querySelectorAll('img');
+                            let potentialImages = [];
+
+                            for (const imgTag of imgTags) {
+                                const imgSrc = imgTag.getAttribute('src');
+                                if (imgSrc && imgSrc.trim() !== '' && imgSrc !== commonTinyPixelDataUri1 && imgSrc !== commonTinyPixelDataUri2) {
+                                    const widthAttr = imgTag.getAttribute('width');
+                                    const imgWidth = widthAttr ? parseInt(widthAttr, 10) : 0;
+                                    potentialImages.push({ src: imgSrc, width: imgWidth });
+                                }
+                            }
+                            
+                            // Select the first image that is reasonably sized, or the first one if none are large enough
+                            if (potentialImages.length > 0) {
+                                const largeEnoughImage = potentialImages.find(img => img.width >= minImageWidth);
+                                imageUrl = largeEnoughImage ? largeEnoughImage.src : potentialImages[0].src; // Fallback to first if no large one
+                            }
+
+                        } catch (e) {
+                            console.warn("Error parsing HTML content for image:", e);
+                        }
+                    }
+                }
+
+                // 4. Fallback to item.feedImage (derived from feed.image)
+                if (!imageUrl && item.feedImage && typeof item.feedImage === 'string' && item.feedImage.trim() !== '') {
+                    imageUrl = item.feedImage;
                 }
                 
                 const titleElement = document.createElement('h2');
@@ -891,6 +934,17 @@ let feedSources = [];
             uiModule.renderSidebarFeedList();
             uiModule.renderTagFilterList();
             loadFeeds(); 
+
+            // Ensure sidebar is visible on desktop if it's not supposed to be initially hidden by -translate-x-full
+            if (window.innerWidth >= 640) { // 640px is Tailwind's default 'sm' breakpoint
+                if (domElements.sidebar.classList.contains('-translate-x-full')) {
+                     domElements.sidebar.classList.remove('-translate-x-full');
+                }
+                // No need to add 'translate-x-0' explicitly if '-translate-x-full' is removed,
+                // as 'transform' with no translate utility defaults to translate(0,0).
+                // Also, the main content margin for desktop is handled by the existing toggle logic for sm:ml-64.
+            }
+            // On mobile (window.innerWidth < 640), the sidebar will remain hidden due to '-translate-x-full' from HTML.
 
             domElements.sidebarToggle.addEventListener('click', () => {
                 domElements.sidebar.classList.toggle('-translate-x-full');
