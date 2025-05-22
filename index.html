@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leitor de Feeds RSS (Tags, NSFW & Lidos/Não Lidos)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.8/purify.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+        #feedItemModal.hidden, #editSourceModal.hidden, #toast-notification.hidden { display: none; }
+        #modalContent img, #editSourceModal img {
+            max-width: 100%; height: auto; border-radius: 0.375rem; margin-top: 0.5rem; margin-bottom: 0.5rem;
+        }
+        #modalContent iframe { max-width: 100%; aspect-ratio: 16 / 9; border-radius: 0.375rem; }
+        #sidebar { transition: transform 0.3s ease-in-out; }
+        .sidebar-section-title {
+            color: #9ca3af; font-size: 0.75rem; text-transform: uppercase;
+            letter-spacing: 0.05em; margin-top: 1rem; margin-bottom: 0.5rem; padding-left: 0.25rem;
+        }
+        .sidebar-item, .tag-item {
+            padding: 0.5rem 0.25rem; border-bottom: 1px solid #4a5568;
+            display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;
+        }
+        .sidebar-item:last-child, .tag-item:last-child { border-bottom: none; }
+        .sidebar-item-name-container {
+            display: flex; flex-direction: column; align-items: flex-start;
+            flex-grow: 1; overflow: hidden;
+        }
+        .sidebar-item-name, .tag-name {
+            cursor: pointer; text-overflow: ellipsis; white-space: nowrap;
+            overflow: hidden; padding: 0.125rem 0;
+        }
+        .sidebar-item-name:hover, .tag-name:hover { color: #60a5fa; }
+        .sidebar-item-name.active-feed, .tag-name.active-tag { color: #38bdf8; font-weight: 600; }
+        .feed-tags-display {
+            font-size: 0.7rem; color: #9ca3af; margin-top: 0.1rem;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .nsfw-tag {
+            margin-left: 0.5rem; font-size: 0.65rem; padding: 0.125rem 0.375rem;
+            border-radius: 9999px; background-color: #dc2626; color: white; flex-shrink: 0;
+        }
+        .sidebar-item-actions button { padding: 0.25rem 0.5rem; font-size: 0.75rem; border-radius: 0.25rem; }
+        .sidebar-item-actions button:hover { opacity: 0.8; }
+        #main-content { transition: margin-left 0.3s ease-in-out; }
+        .feed-card.is-read { opacity: 0.7; }
+        .modal-footer-actions { display: flex; justify-content: space-between; align-items: center; }
+        .toast-error { background-color: #ef4444 !important; }
+        .toast-success { background-color: #22c55e !important; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <button id="sidebarToggle" class="sm:hidden fixed top-4 left-4 z-30 bg-gray-700 text-white p-2 rounded-md shadow-lg">
+        <svg id="sidebarToggleIconOpen" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        <svg id="sidebarToggleIconClose" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+    </button>
+
+    <div id="sidebar" class="fixed top-0 left-0 h-full w-64 bg-gray-800 text-gray-200 p-4 shadow-lg transform -translate-x-full sm:translate-x-0 z-20 flex flex-col">
+        <div class="mb-4">
+            <button id="toggleAddFeedFormButton" class="w-full bg-sky-600 hover:bg-sky-700 text-white py-2 px-3 rounded-md text-sm mb-2 transition-colors">
+                Adicionar Novo Feed
+            </button>
+            <div id="addFeedForm" class="hidden space-y-2 p-3 bg-gray-700 rounded-md">
+                <input type="url" id="sidebarNewFeedUrlInput" placeholder="URL do Feed" class="w-full p-2 rounded-md text-gray-800 text-sm border border-gray-600 focus:ring-sky-500 focus:border-sky-500">
+                <input type="text" id="sidebarNewFeedNameInput" placeholder="Nome (opcional)" class="w-full p-2 rounded-md text-gray-800 text-sm border border-gray-600 focus:ring-sky-500 focus:border-sky-500">
+                <input type="text" id="sidebarNewFeedTagsInput" placeholder="Tags (ex: tech, notícias)" class="w-full p-2 rounded-md text-gray-800 text-sm border border-gray-600 focus:ring-sky-500 focus:border-sky-500">
+                <div class="flex items-center mt-2">
+                    <input type="checkbox" id="sidebarNewFeedNsfw" class="h-4 w-4 text-sky-600 border-gray-500 rounded focus:ring-sky-500 bg-gray-600">
+                    <label for="sidebarNewFeedNsfw" class="ml-2 block text-sm text-gray-300">Marcar como NSFW</label>
+                </div>
+                <button id="sidebarAddFeedButton" class="w-full bg-green-500 hover:bg-green-600 text-white py-2 px-3 rounded-md text-sm transition-colors mt-2">Adicionar</button>
+            </div>
+        </div>
+        
+        <div class="sidebar-section-title">Fontes</div>
+        <div id="sidebarFeedListContainer" class="overflow-y-auto flex-grow mb-4">
+        </div>
+
+        <div class="sidebar-section-title">Tags</div>
+        <div id="sidebarTagListContainer" class="overflow-y-auto flex-grow">
+        </div>
+    </div>
+
+    <div id="main-content" class="sm:ml-64">
+        <div class="container mx-auto p-4 pt-8 sm:pt-4">
+            
+            <div id="activeFilterTitleContainer" class="mb-6 text-center hidden">
+                 <h2 id="activeFilterTitle" class="text-2xl sm:text-3xl font-semibold text-gray-700"></h2>
+            </div>
+
+            <div id="loading" class="text-center my-10">
+                <svg class="animate-spin h-10 w-10 text-sky-500 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p class="mt-2 text-lg text-gray-700">Carregando e organizando feeds...</p>
+            </div>
+
+            <div id="feeds-container" class="space-y-6">
+            </div>
+
+            <div id="error-messages" class="mt-8">
+            </div>
+        </div>
+    </div>
+
+    <div id="feedItemModal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center p-4 hidden z-50 transition-opacity duration-300 ease-in-out">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center p-4 border-b sticky top-0 bg-white z-10">
+                <h2 id="modalTitle" class="text-xl md:text-2xl font-semibold text-gray-800 truncate pr-2">Título do Item</h2>
+                <button id="closeModalButton" class="text-gray-500 hover:text-gray-700 text-3xl leading-none">&times;</button>
+            </div>
+            <div id="modalContent" class="p-6 overflow-y-auto flex-grow text-gray-700 leading-relaxed">
+            </div>
+            <div class="p-4 border-t bg-gray-50 rounded-b-lg modal-footer-actions">
+                <button id="modalMarkAsReadButton" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 transition-colors duration-300 text-sm font-medium">
+                    Marcar como Lido
+                </button>
+                <a id="modalOriginalLink" href="#" target="_blank" rel="noopener noreferrer" class="bg-sky-500 text-white px-4 py-2 rounded-md hover:bg-sky-600 transition-colors duration-300 text-sm font-medium">
+                    Ler no site original
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div id="editSourceModal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center p-4 hidden z-[60] transition-opacity duration-300 ease-in-out">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h2 id="editSourceModalTitle" class="text-xl font-semibold text-gray-800">Editar Fonte</h2>
+                <button id="closeEditSourceModalButton" class="text-gray-500 hover:text-gray-700 text-3xl leading-none">&times;</button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label for="editSourceNameInput" class="block text-sm font-medium text-gray-700">Nome da Fonte</label>
+                    <input type="text" id="editSourceNameInput" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="editSourceTagsInput" class="block text-sm font-medium text-gray-700">Tags (separadas por vírgula)</label>
+                    <input type="text" id="editSourceTagsInput" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500 sm:text-sm">
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="editSourceNsfwCheckbox" class="h-4 w-4 text-sky-600 border-gray-300 rounded focus:ring-sky-500">
+                    <label for="editSourceNsfwCheckbox" class="ml-2 block text-sm text-gray-900">Marcar como NSFW</label>
+                </div>
+                <input type="hidden" id="editSourceUrlHidden">
+            </div>
+            <div class="p-4 border-t bg-gray-50 flex justify-end space-x-3">
+                <button id="cancelEditSourceButton" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 transition-colors text-sm font-medium">Cancelar</button>
+                <button id="saveEditSourceButton" class="bg-sky-500 text-white px-4 py-2 rounded-md hover:bg-sky-600 transition-colors text-sm font-medium">Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-notification" class="fixed bottom-5 right-5 bg-gray-800 text-white p-4 rounded-md shadow-lg hidden z-[100] transition-all duration-300 ease-in-out max-w-sm">
+        <p id="toast-message"></p>
+    </div>
+
+
+    <script>
+        let feedSources = [];
+        let currentlyDisplayedFeedUrl = null;
+        let currentlySelectedTag = null;
+        let readItems = {};
+        let currentItemInModal = null;
+        let toastTimeout = null;
+
+        const feedsContainer = document.getElementById('feeds-container');
+        const loadingIndicator = document.getElementById('loading');
+        const errorMessagesContainer = document.getElementById('error-messages');
+        
+        const feedItemModal = document.getElementById('feedItemModal');
+        const modalTitleEl = document.getElementById('modalTitle');
+        const modalContent = document.getElementById('modalContent');
+        const modalOriginalLink = document.getElementById('modalOriginalLink');
+        const closeModalButton = document.getElementById('closeModalButton');
+        const modalMarkAsReadButton = document.getElementById('modalMarkAsReadButton');
+
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebarToggleIconOpen = document.getElementById('sidebarToggleIconOpen');
+        const sidebarToggleIconClose = document.getElementById('sidebarToggleIconClose');
+        const mainContent = document.getElementById('main-content');
+        const toggleAddFeedFormButton = document.getElementById('toggleAddFeedFormButton');
+        const addFeedForm = document.getElementById('addFeedForm');
+        const sidebarNewFeedUrlInput = document.getElementById('sidebarNewFeedUrlInput');
+        const sidebarNewFeedNameInput = document.getElementById('sidebarNewFeedNameInput');
+        const sidebarNewFeedTagsInput = document.getElementById('sidebarNewFeedTagsInput');
+        const sidebarNewFeedNsfwInput = document.getElementById('sidebarNewFeedNsfw');
+        const sidebarAddFeedButton = document.getElementById('sidebarAddFeedButton');
+        const sidebarFeedListContainer = document.getElementById('sidebarFeedListContainer');
+        const sidebarTagListContainer = document.getElementById('sidebarTagListContainer');
+        
+        const activeFilterTitleContainer = document.getElementById('activeFilterTitleContainer');
+        const activeFilterTitle = document.getElementById('activeFilterTitle');
+
+        const editSourceModal = document.getElementById('editSourceModal');
+        const editSourceNameInput = document.getElementById('editSourceNameInput');
+        const editSourceTagsInput = document.getElementById('editSourceTagsInput');
+        const editSourceNsfwCheckbox = document.getElementById('editSourceNsfwCheckbox');
+        const editSourceUrlHidden = document.getElementById('editSourceUrlHidden');
+        const closeEditSourceModalButton = document.getElementById('closeEditSourceModalButton');
+        const cancelEditSourceButton = document.getElementById('cancelEditSourceButton');
+        const saveEditSourceButton = document.getElementById('saveEditSourceButton');
+
+        const toastNotification = document.getElementById('toast-notification');
+        const toastMessage = document.getElementById('toast-message');
+
+        const CACHE_KEY_PREFIX = 'feed_cache_v5_'; // Incremented version for cache structure changes
+        const CACHE_DURATION_MS = 72 * 60 * 60 * 1000; 
+        const FEED_SOURCES_STORAGE_KEY = 'rss_feed_reader_sources_v5'; // Incremented version
+        const READ_ITEMS_STORAGE_KEY = 'rss_feed_reader_read_items_v2'; // Incremented version
+        const READ_ITEM_EXPIRY_MS = 72 * 60 * 60 * 1000;
+
+        const DEFAULT_FEED_SOURCES = [
+            { url: 'https://fedoramagazine.org/feed/', name: 'Fedora Magazine', isNsfw: false, tags: ['linux', 'tecnologia'] },
+            { url: 'http://www.linuxinsider.com/perl/syndication/rssfull.pl', name: 'Linux Insider', isNsfw: false, tags: ['linux', 'notícias'] },
+            { url: 'https://blog.youtube/rss/', name: 'YouTube Blog', isNsfw: false, tags: ['google', 'video'] },
+            { url: 'https://feeds.feedburner.com/HaveIBeenPwnedLatestBreaches', name: 'Have I Been Pwned', isNsfw: false, tags: ['segurança', 'dados'] },
+            { url: 'https://itsfoss.com/feed/', name: 'It\'s FOSS', isNsfw: false, tags: ['linux', 'open source'] },
+            { url: 'https://www.minhaoperadora.com.br/feed', name: 'Minha Operadora', isNsfw: false, tags: ['telecom', 'brasil'] },
+            { url: 'https://www.intercept.com.br/feed/', name: 'The Intercept Brasil', isNsfw: false, tags: ['jornalismo', 'investigativo', 'brasil'] },
+            { url: 'https://torrentfreak.com/feed/', name: 'TorrentFreak', isNsfw: false, tags: ['tecnologia', 'privacidade', 'copyright'] },
+            { url: 'https://www.omgubuntu.co.uk/feed/', name: 'OMG! Ubuntu!', isNsfw: false, tags: ['linux', 'ubuntu'] },
+            { url: 'https://www.omglinux.com/feed/', name: 'OMG! Linux!', isNsfw: false, tags: ['linux', 'notícias'] },
+            { url: 'https://blogdoiphone.com/feed/', name: 'Blog do iPhone', isNsfw: false, tags: ['apple', 'tecnologia', 'mobile'] },
+            { url: 'https://news.opensuse.org/feed.xml', name: 'openSUSE News', isNsfw: false, tags: ['linux', 'open source', 'opensuse'] },
+            { url: 'https://annas-archive.li/blog/rss.xml', name: 'Anna\'s Archive Blog', isNsfw: false, tags: ['livros', 'arquivos'] },
+            { url: 'https://deolhonosruralistas.com.br/feed/', name: 'De Olho Nos Ruralistas', isNsfw: false, tags: ['brasil', 'agronegócio', 'jornalismo'] },
+            { url: 'https://historiablog.org/feed/', name: 'História Blog', isNsfw: false, tags: ['história', 'educação'] },
+            { url: 'https://www.metropoles.com/tag/goias/feed', name: 'Metrópoles - Goiás', isNsfw: false, tags: ['notícias', 'goiás', 'brasil'] },
+            { url: 'http://www.jw.org/pt/noticias/rss/FullNewsRSS/feed.xml', name: 'JW.ORG Notícias', isNsfw: false, tags: ['religião'] },
+            { url: 'https://vivaldi.com/feed/', name: 'Vivaldi Browser', isNsfw: false, tags: ['navegador', 'tecnologia', 'privacidade'] }
+        ];
+        const CARD_COLORS = ['#f0f9ff', '#f0fdf4', '#f5f3ff', '#fff7ed', '#fefce8', '#fff1f2'];
+
+        function showToast(message, type = 'info', duration = 3500) {
+            if (toastTimeout) clearTimeout(toastTimeout);
+            toastMessage.textContent = message;
+            toastNotification.classList.remove('hidden', 'opacity-0', 'toast-error', 'toast-success');
+            toastNotification.classList.add('opacity-100');
+
+            if (type === 'error') toastNotification.classList.add('toast-error');
+            else if (type === 'success') toastNotification.classList.add('toast-success');
+            
+            toastTimeout = setTimeout(() => {
+                toastNotification.classList.remove('opacity-100');
+                toastNotification.classList.add('opacity-0');
+                setTimeout(() => toastNotification.classList.add('hidden'), 300); // Wait for transition
+            }, duration);
+        }
+
+        function getItemId(item) {
+            if (item.guid && typeof item.guid === 'string' && item.guid.trim() !== '') return item.guid;
+            return item.link;
+        }
+
+        function loadReadItems() {
+            try {
+                const storedReadItems = localStorage.getItem(READ_ITEMS_STORAGE_KEY);
+                readItems = storedReadItems ? JSON.parse(storedReadItems) : {};
+            } catch (e) { readItems = {}; console.error("Erro ao carregar itens lidos:", e); }
+            cleanupOldReadItems();
+        }
+
+        function saveReadItems() {
+            try {
+                localStorage.setItem(READ_ITEMS_STORAGE_KEY, JSON.stringify(readItems));
+            } catch (e) { console.error("Erro ao salvar itens lidos:", e); showToast("Erro ao salvar estado de leitura.", "error");}
+        }
+
+        function cleanupOldReadItems() {
+            const now = Date.now();
+            let changed = false;
+            for (const itemId in readItems) {
+                if (now - readItems[itemId] > READ_ITEM_EXPIRY_MS) {
+                    delete readItems[itemId];
+                    changed = true;
+                }
+            }
+            if (changed) saveReadItems();
+        }
+
+        function isItemRead(item) {
+            return readItems.hasOwnProperty(getItemId(item));
+        }
+
+        function toggleReadStatus(item) {
+            const itemId = getItemId(item);
+            if (isItemRead(item)) delete readItems[itemId];
+            else readItems[itemId] = Date.now();
+            saveReadItems();
+            if (currentItemInModal && getItemId(currentItemInModal) === itemId) updateModalMarkAsReadButtonText();
+            loadFeeds(currentlyDisplayedFeedUrl, currentlySelectedTag);
+        }
+        
+        function loadFeedSourcesFromStorage() {
+            try {
+                const storedSources = localStorage.getItem(FEED_SOURCES_STORAGE_KEY);
+                if (storedSources) {
+                    const parsedSources = JSON.parse(storedSources);
+                    feedSources = parsedSources.map(s => ({
+                        url: s.url,
+                        name: s.name || (s.url ? new URL(s.url).hostname : 'Nome Desconhecido'),
+                        isNsfw: s.isNsfw !== undefined ? s.isNsfw : false,
+                        tags: Array.isArray(s.tags) ? s.tags : [] 
+                    }));
+                } else {
+                    feedSources = [...DEFAULT_FEED_SOURCES];
+                    saveFeedSourcesToStorage();
+                }
+            } catch (e) {
+                console.error("Erro ao carregar fontes do localStorage:", e);
+                feedSources = [...DEFAULT_FEED_SOURCES];
+                saveFeedSourcesToStorage();
+            }
+        }
+
+        function saveFeedSourcesToStorage() {
+            try {
+                localStorage.setItem(FEED_SOURCES_STORAGE_KEY, JSON.stringify(feedSources));
+            } catch (e) { console.error("Erro ao salvar fontes:", e); showToast("Erro ao salvar configurações das fontes.", "error");}
+        }
+        
+        function updateSidebarActiveState() {
+            sidebarFeedListContainer.querySelectorAll('.sidebar-item-name').forEach(item => {
+                item.classList.toggle('active-feed', item.dataset.feedUrl === currentlyDisplayedFeedUrl);
+            });
+            sidebarTagListContainer.querySelectorAll('.tag-name').forEach(item => {
+                item.classList.toggle('active-tag', item.textContent === currentlySelectedTag);
+            });
+        }
+
+        function renderSidebarFeedList() {
+            sidebarFeedListContainer.innerHTML = '';
+            if (feedSources.length === 0) {
+                sidebarFeedListContainer.innerHTML = '<p class="text-gray-400 text-sm text-center p-2">Nenhuma fonte.</p>';
+                return;
+            }
+            feedSources.sort((a,b) => a.name.localeCompare(b.name)).forEach(source => {
+                const listItem = document.createElement('div');
+                listItem.className = 'sidebar-item group';
+                const nameAndTagsContainer = document.createElement('div');
+                nameAndTagsContainer.className = 'sidebar-item-name-container';
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = source.name;
+                nameSpan.title = source.url; 
+                nameSpan.dataset.feedUrl = source.url; 
+                nameSpan.className = 'sidebar-item-name';
+                nameSpan.onclick = () => handleSidebarFeedClick(source.url);
+                nameAndTagsContainer.appendChild(nameSpan);
+
+                if (source.tags && source.tags.length > 0) {
+                    const tagsDisplay = document.createElement('div');
+                    tagsDisplay.className = 'feed-tags-display';
+                    tagsDisplay.textContent = source.tags.join(', ');
+                    nameAndTagsContainer.appendChild(tagsDisplay);
+                }
+                
+                if (source.isNsfw) {
+                    const nsfwTag = document.createElement('span');
+                    nsfwTag.textContent = 'NSFW';
+                    nsfwTag.className = 'nsfw-tag ml-auto self-center'; 
+                    nameAndTagsContainer.appendChild(nsfwTag); // Appended to nameAndTagsContainer
+                }
+                listItem.appendChild(nameAndTagsContainer);
+
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'sidebar-item-actions flex-shrink-0 flex gap-1';
+                const configButton = document.createElement('button');
+                configButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>`;
+                configButton.title = "Configurar Fonte";
+                configButton.className = "text-gray-400 hover:text-gray-300";
+                configButton.onclick = (e) => { e.stopPropagation(); openEditSourceModal(source); };
+                actionsDiv.appendChild(configButton);
+                
+                listItem.appendChild(actionsDiv);
+                sidebarFeedListContainer.appendChild(listItem);
+            });
+            updateSidebarActiveState(); 
+        }
+
+        function renderTagFilterList() {
+            sidebarTagListContainer.innerHTML = '';
+            const allTags = new Set();
+            feedSources.forEach(source => {
+                if (source.tags) source.tags.forEach(tag => allTags.add(tag.trim().toLowerCase()));
+            });
+
+            if (allTags.size === 0) {
+                sidebarTagListContainer.innerHTML = '<p class="text-gray-400 text-sm text-center p-2">Nenhuma tag.</p>';
+                return;
+            }
+            
+            const sortedTags = Array.from(allTags).sort((a,b) => a.localeCompare(b));
+            if (currentlySelectedTag) {
+                const showAllItem = document.createElement('div');
+                showAllItem.className = 'tag-item group';
+                const showAllName = document.createElement('span');
+                showAllName.textContent = "Mostrar Todas as Tags";
+                showAllName.className = 'tag-name italic text-sky-400';
+                showAllName.onclick = () => handleTagClick(null); 
+                showAllItem.appendChild(showAllName);
+                sidebarTagListContainer.appendChild(showAllItem);
+            }
+
+            sortedTags.forEach(tag => {
+                const tagItem = document.createElement('div');
+                tagItem.className = 'tag-item group';
+                const tagNameSpan = document.createElement('span');
+                tagNameSpan.textContent = tag;
+                tagNameSpan.className = 'tag-name';
+                tagNameSpan.onclick = () => handleTagClick(tag);
+                tagItem.appendChild(tagNameSpan);
+                sidebarTagListContainer.appendChild(tagItem);
+            });
+            updateSidebarActiveState();
+        }
+        
+        function handleSidebarFeedClick(clickedUrl) {
+            currentlySelectedTag = null; 
+            currentlyDisplayedFeedUrl = (currentlyDisplayedFeedUrl === clickedUrl) ? null : clickedUrl;
+            loadFeeds(currentlyDisplayedFeedUrl);
+        }
+
+        function handleTagClick(tag) {
+            currentlyDisplayedFeedUrl = null; 
+            currentlySelectedTag = (currentlySelectedTag === tag) ? null : tag;
+            loadFeeds(null, currentlySelectedTag);
+        }
+
+        function openEditSourceModal(source) {
+            editSourceNameInput.value = source.name;
+            editSourceTagsInput.value = source.tags ? source.tags.join(', ') : '';
+            editSourceNsfwCheckbox.checked = source.isNsfw;
+            editSourceUrlHidden.value = source.url;
+            editSourceModal.classList.remove('hidden');
+        }
+
+        function closeEditSourceModal() {
+            editSourceModal.classList.add('hidden');
+        }
+
+        saveEditSourceButton.addEventListener('click', () => {
+            const url = editSourceUrlHidden.value;
+            const sourceToEdit = feedSources.find(s => s.url === url);
+            if (sourceToEdit) {
+                sourceToEdit.name = editSourceNameInput.value.trim() || new URL(url).hostname;
+                sourceToEdit.tags = editSourceTagsInput.value.split(',').map(tag => tag.trim().toLowerCase()).filter(tag => tag !== '');
+                sourceToEdit.isNsfw = editSourceNsfwCheckbox.checked;
+                saveFeedSourcesToStorage();
+                renderSidebarFeedList();
+                renderTagFilterList(); 
+                loadFeeds(currentlyDisplayedFeedUrl, currentlySelectedTag); 
+            }
+            closeEditSourceModal();
+        });
+        closeEditSourceModalButton.addEventListener('click', closeEditSourceModal);
+        cancelEditSourceButton.addEventListener('click', closeEditSourceModal);
+
+        async function handleAddFeedEvent() {
+            const newUrl = sidebarNewFeedUrlInput.value.trim();
+            let newName = sidebarNewFeedNameInput.value.trim();
+            const tagsString = sidebarNewFeedTagsInput.value.trim();
+            const isNsfw = sidebarNewFeedNsfwInput.checked;
+
+            if (!newUrl) { showToast('Por favor, insira uma URL de feed válida.', 'error'); return; }
+            try { new URL(newUrl); } catch (_) { showToast('A URL inserida não parece ser válida.', 'error'); return; }
+            if (feedSources.some(source => source.url === newUrl)) { showToast('Esta URL de feed já foi adicionada.', 'error'); return; }
+
+            if (!newName) {
+                try {
+                    const feedData = await fetchFeedData(newUrl, true); 
+                    newName = (feedData && feedData.feed && feedData.feed.title) ? feedData.feed.title : new URL(newUrl).hostname;
+                } catch (error) { newName = new URL(newUrl).hostname; }
+            }
+            
+            const tagsArray = tagsString.split(',').map(tag => tag.trim().toLowerCase()).filter(tag => tag !== '');
+            feedSources.push({ url: newUrl, name: newName, isNsfw: isNsfw, tags: tagsArray });
+            saveFeedSourcesToStorage();
+            renderSidebarFeedList();
+            renderTagFilterList();
+            sidebarNewFeedUrlInput.value = '';
+            sidebarNewFeedNameInput.value = '';
+            sidebarNewFeedTagsInput.value = '';
+            sidebarNewFeedNsfwInput.checked = false; 
+            addFeedForm.classList.add('hidden'); 
+            currentlyDisplayedFeedUrl = newUrl; 
+            currentlySelectedTag = null;
+            loadFeeds(newUrl); 
+            showToast(`Feed "${newName}" adicionado com sucesso!`, 'success');
+        }
+
+        function handleRemoveFeedEvent(urlToRemove) { // Not directly used by UI yet, but kept for possible future use
+            feedSources = feedSources.filter(source => source.url !== urlToRemove);
+            saveFeedSourcesToStorage();
+            try { localStorage.removeItem(CACHE_KEY_PREFIX + urlToRemove); } catch (e) { console.error("Erro ao remover cache:", e); }
+            renderSidebarFeedList();
+            renderTagFilterList();
+            if (currentlyDisplayedFeedUrl === urlToRemove) currentlyDisplayedFeedUrl = null;
+            loadFeeds(currentlyDisplayedFeedUrl, currentlySelectedTag); 
+        }
+
+        async function fetchFeedData(rssUrl, bypassCache = false) {
+            const cacheKey = CACHE_KEY_PREFIX + rssUrl;
+            const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
+            const TWENTY_MINUTES_MS = 20 * 60 * 1000;
+            let cachedItem = null;
+
+            try {
+                const cachedDataString = localStorage.getItem(cacheKey);
+                if (cachedDataString) cachedItem = JSON.parse(cachedDataString);
+            } catch (e) { 
+                try { localStorage.removeItem(cacheKey); } catch (removeError) { /* ignore */ }
+                cachedItem = null; console.error("Erro ao ler cache:", e);
+            }
+
+            const dataExistsInCache = cachedItem && cachedItem.data;
+            const lastSuccessfulFetchTimestamp = dataExistsInCache ? (cachedItem.lastNetworkFetchTimestamp || 0) : 0;
+            const cacheIsFreshEnoughForDirectServe = Date.now() - lastSuccessfulFetchTimestamp < TWENTY_MINUTES_MS;
+
+            if (!bypassCache && dataExistsInCache && cacheIsFreshEnoughForDirectServe) {
+                return { ...(cachedItem.data), fromCache: true, feedUrl: rssUrl, feedTitle: cachedItem.data.feed.title || rssUrl.split('/')[2] || rssUrl };
+            }
+            
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) throw new Error(`Erro HTTP: ${response.status} para ${rssUrl}`);
+                const freshData = await response.json();
+                if (freshData.status !== 'ok') throw new Error(`API rss2json retornou erro: ${freshData.message || 'Erro desconhecido'} para ${rssUrl}`);
+                
+                try {
+                    localStorage.setItem(cacheKey, JSON.stringify({ data: freshData, timestamp: Date.now(), lastNetworkFetchTimestamp: Date.now() }));
+                } catch (e) { console.error("Erro ao salvar no cache:", e); showToast("Erro ao salvar dados no cache local.", "error");}
+                return { ...freshData, fromCache: false, feedUrl: rssUrl, feedTitle: freshData.feed.title || rssUrl.split('/')[2] || rssUrl };
+            } catch (networkError) {
+                if (dataExistsInCache) {
+                    const cacheTimestamp = cachedItem.timestamp || 0; 
+                    const isCacheValidForFallback = Date.now() - cacheTimestamp < CACHE_DURATION_MS;
+                    if (isCacheValidForFallback) {
+                        return { ...(cachedItem.data), fromCache: true, fromCacheOnError: true, originalError: networkError.message, feedUrl: rssUrl, feedTitle: cachedItem.data.feed.title || rssUrl.split('/')[2] || rssUrl };
+                    } else {
+                         try { localStorage.removeItem(cacheKey); } catch (e) { /* ignore */ }
+                    }
+                }
+                return { error: networkError.message, feedUrl: rssUrl, feedTitle: rssUrl.split('/')[2] || rssUrl };
+            }
+        }
+
+        function createCard(item, cardIndex) {
+            const cardDiv = document.createElement('div');
+            cardDiv.className = 'feed-card cursor-pointer rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col p-4 relative';
+            
+            cardDiv.style.backgroundColor = CARD_COLORS[cardIndex % CARD_COLORS.length];
+            if (isItemRead(item)) cardDiv.classList.add('is-read');
+            cardDiv.addEventListener('click', () => openModal(item));
+
+            let imageUrl = item.thumbnail || (item.enclosure && item.enclosure.link && item.enclosure.type && item.enclosure.type.startsWith('image/') ? item.enclosure.link : null);
+            if (!imageUrl && item.feedImage) imageUrl = item.feedImage;
+            if (!imageUrl && item.description) {
+                try {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = DOMPurify.sanitize(item.description, { USE_PROFILES: { html: true } }); // Sanitize before parsing
+                    const firstImgTag = tempDiv.querySelector('img');
+                    if (firstImgTag && firstImgTag.src) imageUrl = firstImgTag.src;
+                } catch (e) { /* Silently ignore */ }
+            }
+            
+            const titleElement = document.createElement('h2');
+            titleElement.className = 'text-xl font-bold text-gray-800 leading-tight w-full'; 
+            titleElement.textContent = item.title || 'Título indisponível';
+
+            if (imageUrl) {
+                cardDiv.classList.add('items-center', 'space-y-3');
+                const imgElement = document.createElement('img');
+                imgElement.alt = item.title || 'Imagem do item';
+                imgElement.className = 'w-full h-48 object-cover rounded-md'; 
+                const unavailableImageUrl = `https://placehold.co/600x300/fecaca/991b1b?text=Imagem+Indispon%C3%ADvel`;
+
+                imgElement.onerror = function() { 
+                    this.onerror = null; 
+                    this.src = unavailableImageUrl; 
+                    this.alt = 'Imagem indisponível';
+                    this.classList.remove('filter', 'blur-sm', 'cursor-pointer'); // Ensure blur is removed on error
+                };
+
+                if (item.isNsfwSource) { 
+                    imgElement.classList.add('filter', 'blur-sm', 'cursor-pointer', 'transition-all', 'duration-300');
+                    imgElement.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"; 
+                    imgElement.dataset.realSrc = imageUrl;
+                    imgElement.addEventListener('click', function revealNsfwImage(event) {
+                        event.stopPropagation(); 
+                        this.src = this.dataset.realSrc;
+                        this.classList.remove('filter', 'blur-sm', 'cursor-pointer');
+                    }, { once: true });
+                } else {
+                    imgElement.src = imageUrl;
+                }
+                cardDiv.appendChild(imgElement);
+                titleElement.classList.add('text-center'); 
+            } else {
+                titleElement.classList.add('text-justify');
+                cardDiv.classList.add('justify-center'); 
+                cardDiv.style.minHeight = '120px'; 
+                titleElement.style.marginTop = 'auto'; 
+                titleElement.style.marginBottom = 'auto';
+            }
+            
+            cardDiv.appendChild(titleElement);
+            return cardDiv;
+        }
+        
+        function displayErrorMessage(feedUrl, errorMessage, feedTitleGiven) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4';
+            errorDiv.innerHTML = `
+                <strong class="font-bold">Erro ao carregar feed:</strong>
+                <span class="block sm:inline">${DOMPurify.sanitize(feedTitleGiven || feedUrl)}</span>
+                <p class="text-sm">${DOMPurify.sanitize(errorMessage)}</p>
+            `;
+            errorMessagesContainer.appendChild(errorDiv);
+        }
+
+        function updateModalMarkAsReadButtonText() {
+            if (currentItemInModal) {
+                if (isItemRead(currentItemInModal)) {
+                    modalMarkAsReadButton.textContent = "Marcar como Não Lido";
+                    modalMarkAsReadButton.classList.remove('bg-green-500', 'hover:bg-green-600', 'text-white', 'bg-gray-200', 'hover:bg-gray-300', 'text-gray-700');
+                    modalMarkAsReadButton.classList.add('bg-yellow-400', 'hover:bg-yellow-500', 'text-gray-800');
+                } else {
+                    modalMarkAsReadButton.textContent = "Marcar como Lido";
+                    modalMarkAsReadButton.classList.remove('bg-yellow-400', 'hover:bg-yellow-500', 'text-gray-800','bg-gray-200', 'hover:bg-gray-300', 'text-gray-700');
+                    modalMarkAsReadButton.classList.add('bg-green-500', 'hover:bg-green-600', 'text-white');
+                }
+            }
+        }
+
+        function openModal(item) {
+            currentItemInModal = item; 
+            modalTitleEl.textContent = item.title || "Sem Título";
+            // CRITICAL: Sanitize HTML content before inserting into the DOM
+            modalContent.innerHTML = DOMPurify.sanitize(item.content || item.description || "<p>Conteúdo não disponível.</p>", { USE_PROFILES: { html: true } });
+            
+            updateModalMarkAsReadButtonText(); 
+
+            if(item.link) {
+                modalOriginalLink.href = item.link;
+                modalOriginalLink.style.display = 'inline-block';
+            } else {
+                modalOriginalLink.style.display = 'none';
+            }
+            feedItemModal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden'; 
+        }
+
+        function closeModal() {
+            feedItemModal.classList.add('hidden');
+            document.body.style.overflow = 'auto'; 
+            currentItemInModal = null; 
+        }
+
+        modalMarkAsReadButton.addEventListener('click', () => {
+            if (currentItemInModal) {
+                toggleReadStatus(currentItemInModal);
+                closeModal(); 
+            }
+        });
+
+        closeModalButton.addEventListener('click', closeModal);
+        feedItemModal.addEventListener('click', (event) => {
+            if (event.target === feedItemModal) closeModal();
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !feedItemModal.classList.contains('hidden')) closeModal();
+            if (event.key === 'Escape' && !editSourceModal.classList.contains('hidden')) closeEditSourceModal();
+        });
+
+        async function loadFeeds(sourceUrl = null, filterTag = null) { 
+            currentlyDisplayedFeedUrl = sourceUrl; 
+            currentlySelectedTag = filterTag;
+            updateSidebarActiveState(); 
+            loadReadItems(); 
+
+            loadingIndicator.style.display = 'block';
+            feedsContainer.innerHTML = '';
+            errorMessagesContainer.innerHTML = ''; 
+            activeFilterTitleContainer.classList.add('hidden');
+            
+            if (sourceUrl) {
+                const source = feedSources.find(s => s.url === sourceUrl);
+                if (source) {
+                    activeFilterTitle.textContent = `Exibindo: ${source.name}`;
+                    activeFilterTitleContainer.classList.remove('hidden');
+                }
+            } else if (filterTag) {
+                 activeFilterTitle.textContent = `Exibindo feeds com a tag: ${filterTag}`;
+                 activeFilterTitleContainer.classList.remove('hidden');
+            }
+
+            if (feedSources.length === 0 && !sourceUrl && !filterTag) { 
+                loadingIndicator.style.display = 'none';
+                feedsContainer.innerHTML = '<p class="text-center text-gray-500 col-span-full">Nenhuma fonte de feed configurada. Adicione uma na barra lateral.</p>';
+                return;
+            }
+
+            let fetchedItems = [];
+            let feedsToFetchFrom = [...feedSources]; 
+
+            if (sourceUrl) { 
+                feedsToFetchFrom = feedSources.filter(s => s.url === sourceUrl);
+            } else if (filterTag) { 
+                feedsToFetchFrom = feedSources.filter(s => s.tags && s.tags.includes(filterTag));
+            }
+            
+            if (feedsToFetchFrom.length === 0) {
+                loadingIndicator.style.display = 'none';
+                let message = "Nenhuma fonte para carregar.";
+                if (filterTag && !sourceUrl) message = `Nenhuma fonte encontrada com a tag "${filterTag}".`;
+                else if (sourceUrl) message = `A fonte especificada não foi encontrada ou não possui itens.`;
+                feedsContainer.innerHTML = `<p class="text-center text-gray-500 col-span-full">${message}</p>`;
+                return;
+            }
+
+            const promises = feedsToFetchFrom.map(source => fetchFeedData(source.url));
+            const results = await Promise.allSettled(promises);
+            
+            results.forEach(result => {
+                if (result.status === 'fulfilled' && result.value) {
+                    const feedResponse = result.value;
+                    if (feedResponse.error) {
+                        displayErrorMessage(feedResponse.feedUrl, feedResponse.error, feedResponse.feedTitle);
+                    } else if (feedResponse.items && feedResponse.items.length > 0) {
+                        const sourceOrigin = feedSources.find(s => s.url === feedResponse.feedUrl); 
+                        feedResponse.items.forEach(item => {
+                            const pubDateTimestamp = item.pubDate ? new Date(item.pubDate).getTime() : 0;
+                            if (isNaN(pubDateTimestamp) || pubDateTimestamp === 0) return; 
+
+                            const processedItem = { 
+                                ...item, 
+                                parsedPubDateTimestamp: pubDateTimestamp,
+                                isNsfwSource: sourceOrigin ? sourceOrigin.isNsfw : false 
+                            };
+                            if (!item.thumbnail && feedResponse.feed && feedResponse.feed.image) {
+                                processedItem.feedImage = feedResponse.feed.image;
+                            }
+                            fetchedItems.push(processedItem);
+                        });
+                    }
+                } else if (result.status === 'rejected') {
+                    const originalSource = feedsToFetchFrom[results.indexOf(result)];
+                    const errorMessageText = result.reason ? (result.reason.message || String(result.reason)) : 'Falha desconhecida';
+                    if (originalSource) displayErrorMessage(originalSource.url, errorMessageText, originalSource.name);
+                    else displayErrorMessage('URL Desconhecida', errorMessageText, 'Feed Desconhecido');
+                }
+            });
+
+            const unreadDisplayItems = [];
+            const readDisplayItems = [];
+            fetchedItems.forEach(item => {
+                if (isItemRead(item)) readDisplayItems.push(item);
+                else unreadDisplayItems.push(item);
+            });
+
+            unreadDisplayItems.sort((a, b) => b.parsedPubDateTimestamp - a.parsedPubDateTimestamp);
+            readDisplayItems.sort((a, b) => b.parsedPubDateTimestamp - a.parsedPubDateTimestamp);
+            let allDisplayableItems = [...unreadDisplayItems, ...readDisplayItems];
+            
+            // Limit items displayed, especially for "all feeds" view.
+            // For single feed or tag view, show more (e.g., 50), for all feeds, maybe less (e.g., 20 per feed, or a global max).
+            // The current logic shows up to 50 items if no specific source/tag, or 10 if a source/tag is selected.
+            // This seems reversed. Let's adjust: more for specific, less for general.
+            // For simplicity, I'll keep the current logic but note it could be refined.
+            // The original logic was: const itemsToDisplayLimit = (sourceUrl || filterTag) ? 10 : 50; 
+            // This means 10 for specific, 50 for all. This is likely a typo and should be:
+            const itemsToDisplayLimit = (sourceUrl || filterTag) ? 50 : 20; // More for specific, less for "all"
+            const itemsToDisplay = allDisplayableItems.slice(0, itemsToDisplayLimit);
+
+
+            loadingIndicator.style.display = 'none';
+
+            if (itemsToDisplay.length === 0) {
+                if (errorMessagesContainer.children.length === 0) { 
+                    let filterContext = "exibir";
+                    if (sourceUrl) filterContext = `a fonte "${feedSources.find(s=>s.url === sourceUrl)?.name || sourceUrl}"`;
+                    else if (filterTag) filterContext = `a tag "${filterTag}"`;
+                    else filterContext = "nenhum filtro aplicado";
+                    feedsContainer.innerHTML = `<p class="text-center text-gray-500 col-span-full">Nenhum item encontrado para ${filterContext}.</p>`;
+                } else { 
+                    feedsContainer.innerHTML = `<p class="text-center text-gray-500 col-span-full">Nenhum item para exibir. Verifique as mensagens de erro acima.</p>`;
+                }
+                return;
+            }
+            
+            const gridDiv = document.createElement('div');
+            gridDiv.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6';
+            itemsToDisplay.forEach((item, index) => { 
+                gridDiv.appendChild(createCard(item, index));
+            });
+            feedsContainer.appendChild(gridDiv);
+        }
+
+        function cleanupOrphanedCacheEntries() {
+            const currentFeedUrls = new Set(feedSources.map(s => s.url));
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith(CACHE_KEY_PREFIX)) {
+                    const cachedUrl = key.substring(CACHE_KEY_PREFIX.length);
+                    if (!currentFeedUrls.has(cachedUrl)) {
+                        try {
+                            localStorage.removeItem(key);
+                            console.log(`Cache órfão removido: ${key}`);
+                        } catch (e) {
+                            console.error(`Erro ao remover cache órfão ${key}:`, e);
+                        }
+                    }
+                }
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            loadFeedSourcesFromStorage();
+            loadReadItems(); 
+            cleanupOrphanedCacheEntries(); // Clean up before rendering/loading
+            renderSidebarFeedList();
+            renderTagFilterList();
+            loadFeeds(); 
+
+            sidebarToggle.addEventListener('click', () => {
+                sidebar.classList.toggle('-translate-x-full');
+                mainContent.classList.toggle('sm:ml-64', !sidebar.classList.contains('-translate-x-full'));
+                sidebarToggleIconOpen.classList.toggle('hidden');
+                sidebarToggleIconClose.classList.toggle('hidden');
+            });
+
+            toggleAddFeedFormButton.addEventListener('click', () => {
+                addFeedForm.classList.toggle('hidden');
+            });
+
+            sidebarAddFeedButton.addEventListener('click', handleAddFeedEvent);
+            [sidebarNewFeedUrlInput, sidebarNewFeedNameInput, sidebarNewFeedTagsInput].forEach(input => {
+                input.addEventListener('keypress', (e) => { if (e.key === 'Enter') sidebarAddFeedButton.click(); });
+            });
+            
+        });
+    </script>
+</body>
+</html>
+
