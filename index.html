@@ -319,9 +319,16 @@
 
         generateNewSeedButton.addEventListener('click', () => {
             const newSeed = generateRandomSeed();
-            generatedSeedDisplay.textContent = `Sua nova seed: ${newSeed}`;
+            // Directly use the new seed
+            handleSeedConfiguration(newSeed);
+            // Optionally, still display it if handleSeedConfiguration doesn't update the UI immediately
+            // before hiding, or if you want the user to see it briefly before modal closes.
+            // However, handleSeedConfiguration already calls displayCurrentSeedElement and showToast.
+            // So, generatedSeedDisplay and existingSeedInput might not be strictly needed here anymore
+            // if the modal closes very quickly. For safety, we can leave the input population.
+            existingSeedInput.value = newSeed; // Keep this so user sees the seed if they reopen.
+            generatedSeedDisplay.textContent = `Sua nova seed: ${newSeed}`; // Keep for clarity if modal is reopened.
             generatedSeedDisplay.classList.remove('hidden');
-            existingSeedInput.value = newSeed;
             seedError.classList.add('hidden');
         });
 
@@ -789,6 +796,7 @@
         }
 
         function extractImageFromItem(item) {
+            console.log('Attempting to extract image from item:', JSON.stringify(item));
             if (!item) return null;
             if (item.thumbnail && typeof item.thumbnail === 'string' && item.thumbnail.startsWith('http')) {
                 return item.thumbnail;
@@ -830,16 +838,16 @@
                         const tempDiv = document.createElement('div');
                         tempDiv.innerHTML = DOMPurify.sanitize(sourceHtml, { USE_PROFILES: { html: true } });
                         const imgTag = tempDiv.querySelector('img');
-                        if (imgTag && imgTag.src && imgTag.src.startsWith('http')) {
-                            if (imgTag.naturalWidth === undefined || imgTag.naturalWidth === 0 || imgTag.naturalWidth > 50) {
-                                return imgTag.src;
-                            }
+                        // Check if imgTag and imgTag.src exist, and if src is http(s) or data URI
+                        if (imgTag && imgTag.src && (imgTag.src.startsWith('http') || imgTag.src.startsWith('data:image'))) {
+                            return imgTag.src; // Return the src if valid
                         }
                     } catch (e) {
                         // console.warn("Error parsing HTML for image:", e);
                     }
                 }
             }
+            console.log('Failed to extract image from item:', JSON.stringify(item));
             return null;
         }
 
