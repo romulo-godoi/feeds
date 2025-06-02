@@ -1,5 +1,5 @@
 // service-worker.js
-const CACHE_NAME = 'jw-assignments-cache-v2.7'; // Versão incrementada
+const CACHE_NAME = 'jw-assignments-cache-v2.8'; // Versão incrementada
 const urlsToCache = [
   './',
   './index.html',
@@ -75,15 +75,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Ignorar requisições para SDKs Firebase (módulos ES6) e Realtime Database
-  if (requestUrl.origin === 'https://www.gstatic.com' && requestUrl.pathname.startsWith('/firebasejs/')) {
-    // console.log(`SW (${CACHE_NAME}): Ignorando requisição SDK Firebase: ${event.request.url}`);
-    return; // Deixa o navegador/módulo lidar
-  }
-  if (requestUrl.hostname.endsWith('firebaseio.com')) {
-    // console.log(`SW (${CACHE_NAME}): Ignorando requisição Firebase DB: ${event.request.url}`);
-    return; // Deixa a SDK do Firebase lidar
-  }
+  // Firebase specific conditions REMOVED
+  // if (requestUrl.origin === 'https://www.gstatic.com' && requestUrl.pathname.startsWith('/firebasejs/')) {
+  //   return; 
+  // }
+  // if (requestUrl.hostname.endsWith('firebaseio.com')) {
+  //   return; 
+  // }
 
   // Estratégia: Cache Only (para o App Shell pré-cacheado)
   const isCoreAsset = urlsToCache.some(url => {
@@ -118,7 +116,7 @@ self.addEventListener('fetch', (event) => {
       })
     );
   } else {
-    // Estratégia: Network Falling Back to Cache (para outros recursos, como fontes carregadas pelo CSS)
+    // Estratégia: Network Falling Back to Cache (para outros recursos, como fontes carregadas pelo CSS ou PeerJS)
     event.respondWith(
       fetch(event.request)
         .then((networkResponse) => {
@@ -159,4 +157,3 @@ self.addEventListener('fetch', (event) => {
     );
   }
 });
-

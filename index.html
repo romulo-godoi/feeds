@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" xintegrity="sha512-xh6O/CkQoPOWDdYTDqeRdPCVd1SpvCA9XXcUnZS2FmJNp1coAFzvtCN9BmamE+4aHK8yyUHUSCcJHgXloTyT2A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <style>
 :root{--a:#0d0d10;--b:#1c1c21;--c:#25252b;--d:#333338;--e:#101012;--f:#030304;--g:#eaeaf0;--h:#90909c;--i:#8a9ff9;--j:#5c6db5;--k:#f2c079;--l:#e680a7;--m:#74c7a3;--n:#2f588f;--o:#457c7c;--p:#7d5c9e;--q:#82a05e;--r:#bc906d;--s:12px;--t:10px;--u:'Inter',sans-serif;--v:0.2s;--w:0.3s;--x:0.5s;--y:linear-gradient(180deg,var(--b),var(--a));--z:0.5;--aa:var(--j);--ab:transparent;--ac:rgba(10,10,15,.8);--ad:var(--c);--ae:var(--a);--af:var(--b);--ag:var(--d);--ah:var(--h);--ai:var(--i);--aj:none;--ak:0 0 0 2px color-mix(in srgb,var(--i) 30%,transparent);--al:color-mix(in srgb,var(--h) 70%,transparent);--am:14px 16px;--an:var(--t);--ao:var(--c);--ap:25px;--aq:20px;--ar:var(--h);--as:500;--at:0.8em;--au:0.8px;--av:linear-gradient(60deg,var(--i),var(--j));--aw:0 2px 6px rgba(0,0,0,.2);--ax:0 4px 10px color-mix(in srgb,var(--i) 25%,transparent);--ay:0.98;--az:1rem;--ba:invert(.7);--bb:var(--h);--bc:0.25s}
 body.light{--a:#f4f4f8;--b:#fff;--c:#f0f0f2;--d:#dcdce1;--e:#e8e8ed;--f:#fdfdff;--g:#1d1d1f;--h:#5f5f64;--i:#006ee6;--j:#504fbd;--k:#e68a00;--n:#cee0ff;--o:#c7eae7;--p:#e9d6ff;--q:#e1f0d2;--r:#fae9d8;--y:linear-gradient(180deg,var(--b),var(--a));--z:0.6;--aa:var(--j);--ab:#eee;--ac:rgba(50,50,60,.7);--ad:var(--b);--ae:#f8f8fa;--af:#fff;--ag:#e0e0e6;--ah:#c0c0c8;--ai:var(--i);--aj:none;--ak:0 0 0 2px color-mix(in srgb,var(--i) 25%,transparent);--al:color-mix(in srgb,var(--h) 80%,transparent);--ao:#fff;--ar:var(--h);--av:linear-gradient(60deg,var(--i),var(--j));--aw:0 2px 6px rgba(0,0,0,.1);--ax:0 4px 10px color-mix(in srgb,var(--i) 20%,transparent);--ba:invert(.1);--bb:var(--h)}
@@ -277,36 +278,6 @@ body.light .highlight-scroll {
 <div id="cTt" class="x28"></div>
 
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getDatabase, ref, set, get, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-
-  const firebaseConfig = {
-    apiKey: "teste", // Substitua pela sua chave de API real
-    authDomain: "teste",
-    databaseURL: "teste",
-    projectId: "designado-77317",
-    storageBucket: "teste",
-    messagingSenderId: "teste",
-    appId: "teste"
-  };
-
-  let fbApp;
-  let db;
-
-  try {
-    fbApp = initializeApp(firebaseConfig);
-    db = getDatabase(fbApp);
-  } catch (error) {
-    console.error("Falha crítica ao inicializar Firebase:", error);
-    const initErrorMsgEl = document.getElementById('initErrorMsg');
-    if (initErrorMsgEl) {
-        initErrorMsgEl.textContent = "Erro crítico ao conectar com o servidor. Tente recarregar a página.";
-        initErrorMsgEl.style.display = 'block';
-    }
-    throw new Error("Firebase initialization failed"); // Impede a execução do restante do script
-  }
-
-
   document.addEventListener('DOMContentLoaded',()=>{
     const TXT={
       pageTitle:"Minhas Designações",loading:"Carregando...",noAssignmentsAdded:"Nenhuma designação adicionada.",
@@ -331,12 +302,13 @@ body.light .highlight-scroll {
       assignTypeFieldLeader:"Superv. Grupo",assignTypeAttendantEntry:"Indicador Entrada",assignTypeAttendantAud:"Indicador Audit.",assignTypeCleaning:"Limpeza",assignTypeAudio:"Som",assignTypeVideo:"Vídeo",
       assignTypeConductor:"Dirig. Sentinela",assignTypeBibleReading:"Leitura Bíblia",assignTypeCongStudyReader:"Leitor Estudo Bíbl.",assignTypeCongStudyConductor:"Dirig. Estudo Bíbl.",assignTypePublicTalk:"Disc. Público",assignTypeChristianLifeTalk:"Nossa Vida Cristã",assignTypeTreasuresTalk:"Tesouros",assignTypeSpiritualGems:"Joias Espirituais",assignTypeMinistrySchool:"Faça Seu Melhor",assignTypeWatchtowerReader:"Leitor Sentinela",assignTypeWatchtowerConductor:"Dirig. Sentinela",assignTypeFinalPrayer:"Oração Final",
       assignTypeAssembly:"Assembleia",assignTypeBethelVisit:"Visita Betel",shortNameCongStudyReader:"Leit. EBC",shortNameCongStudyConductor:"Dir. EBC",shortNameMinistrySchool:"Ministério",shortNameAttendantEntry:"Indic. Entr.",shortNameAttendantAud:"Indic. Aud.",shortNameTreasuresTalk:"Tesouros",shortNameChristianLifeTalk:"Vida Cristã",shortNameWatchtowerReader:"Leit. Sent.",shortNameWatchtowerConductor:"Dir. Sent.",shortNameConventionD1:"Cong. D1",shortNameConventionD2:"Cong. D2",shortNameConventionD3:"Cong. D3",shortNameFieldLeader:"Sup. Gr.",themeToggleButton:"Mudar Tema",formCustomTypePlaceholder:"Digite o nome personalizado",formNotesPlaceholder:"Observações opcionais",
-      seedModalTitle: "Sincronização", seedModalDesc: "Para manter seus dados sincronizados entre dispositivos, use uma <strong>Seed</strong> (chave única).",
+      seedModalTitle: "Sincronização", 
+      seedModalDesc: "Para manter seus dados sincronizados diretamente entre seus dispositivos (P2P), use uma <strong>Seed</strong> (chave única).",
       seedModalQuestion: "Você já possui uma Seed?", seedModalYesButton: "Sim, desejo inserir", seedModalNoButton: "Não, gerar nova Seed",
       seedModalInputLabel: "Insira sua Seed:", seedModalInputPlaceholder: "palavra1-palavra2-123", seedModalConfirmButton: "Confirmar Seed",
-      seedModalGeneratedLabel: "Sua nova Seed (anote em local seguro!):", seedModalGeneratedText: "Gerando...", seedModalGeneratedWarning: "<strong>Atenção:</strong> Se perder esta Seed, não será possível recuperar os dados sincronizados.",
-      seedModalContinueButton: "Anotei minha Seed, Continuar", seedInvalidError: "Seed inválida. Formato esperado: palavra-palavra-numero", seedSavedSuccess: "Seed salva com sucesso!",
-      syncErrorRead: "Erro ao ler dados da nuvem. Verifique sua conexão.", syncErrorWrite: "Erro ao salvar dados na nuvem. Verifique sua conexão.",
+      seedModalGeneratedLabel: "Sua nova Seed (anote em local seguro!):", seedModalGeneratedText: "Gerando...", 
+      seedModalGeneratedWarning: "<strong>Atenção:</strong> Se perder esta Seed, não será possível reconectar seus dispositivos para sincronização P2P.",
+      seedModalContinueButton: "Anotei minha Seed, Continuar", seedInvalidError: "Seed inválida. Formato esperado: palavra-palavra-numero", seedSavedSuccess: "Seed salva! Sincronização P2P configurada.",
       viewSeedTitle: "Sua Seed de Sincronização", viewSeedNone: "Seed ainda não definida.",
       appInitError: "Erro crítico na inicialização do aplicativo. Por favor, recarregue a página.",
       dataLoadError: "Falha ao carregar dados iniciais. Alguns recursos podem não funcionar.",
@@ -369,13 +341,13 @@ body.light .highlight-scroll {
 
     let D={assignments:[],frequency:{}};let WO=0;let ATM=null;let tSX=0,tSY=0,tEX=0,tEY=0;const SM=50;
     let CSeed = null;
-    let dbRef = null;
-    let dbTimestampRef = null;
+    let peer = null; 
+    let activeConnections = {}; 
     let sDTimeout = null;
-    let luts = 0;
-    let isFetching = false;
-    let fetchIntervalId = null;
-    const FETCH_INTERVAL = 60000; // 1 minuto
+    let luts = 0; 
+    let isFetching = false; 
+    let fetchIntervalId = null; 
+    const FETCH_INTERVAL = 60000; 
     let currentDayString = '';
 
 
@@ -383,79 +355,150 @@ body.light .highlight-scroll {
       const ensured = dataObj || {};
       ensured.assignments = Array.isArray(ensured.assignments) ? ensured.assignments : [];
       ensured.frequency = (typeof ensured.frequency === 'object' && ensured.frequency !== null) ? ensured.frequency : {};
+      if (typeof ensured.lastUpdated !== 'number') {
+        ensured.lastUpdated = 0;
+      }
       return ensured;
     }
-
-    async function fetchDataFromFirebase() {
-        if (!dbRef || !dbTimestampRef || isFetching || !navigator.onLine) return;
-        isFetching = true;
-        try {
-            const timestampSnapshot = await get(dbTimestampRef);
-            const fbTimestamp = timestampSnapshot.val();
-            if (fbTimestamp && fbTimestamp > luts) {
-                const dataSnapshot = await get(dbRef);
-                const fbSnapshotData = dataSnapshot.val();
-                if (fbSnapshotData && fbSnapshotData.data) {
-                    D = ensureDataStructure(fbSnapshotData.data);
-                    luts = fbTimestamp;
-                    localStorage.setItem(DK, JSON.stringify(D));
-                    rAll();
-                } else if (D.assignments.length > 0 || Object.keys(D.frequency).length > 0) {
-                    // Firebase pode estar vazio, mas local tem dados. Forçar sincronização para cima.
-                } else {
-                    // Ambos Firebase e local estão vazios ou Firebase está explicitamente vazio.
-                    D = { assignments: [], frequency: {} };
-                    luts = fbTimestamp; // Atualiza luts mesmo se Firebase estiver vazio.
-                    localStorage.removeItem(DK); // Remove dados locais se Firebase estiver vazio.
-                    rAll();
-                }
-            } else if (!fbTimestamp && (D.assignments.length > 0 || Object.keys(D.frequency).length > 0)) {
-                // Firebase não tem timestamp (provavelmente vazio), mas local tem dados.
-                sD(true); // Força o salvamento local para o Firebase potencialmente vazio.
-            }
-        } catch (error) {
-            console.error(_t('syncErrorRead'), error);
-            showNotification(_t('syncErrorRead'), 'error');
-        } finally {
-            isFetching = false;
-        }
-    }
-
 
     function lD() {
       return new Promise(async (resolve, reject) => {
         try {
             CSeed = localStorage.getItem(SK);
             if (!CSeed) {
-                CSeed = await gSFP(); // Solicita a seed ao usuário
-                localStorage.setItem(SK, CSeed); // Salva a seed fornecida
+                CSeed = await gSFP(); 
+                localStorage.setItem(SK, CSeed); 
                 showNotification(_t('seedSavedSuccess'), 'success');
             }
-             if (!CSeed) { // Ainda sem seed após o prompt (ex: usuário fechou o modal)
+             if (!CSeed) { 
                  throw new Error("Seed não fornecida ou inválida.");
             }
 
-            dbRef = ref(db, `userData/v3/${CSeed}`);
-            dbTimestampRef = ref(db, `userData/v3/${CSeed}/lastUpdated`);
+            if (CSeed) {
+                try {
+                    peer = new Peer(CSeed); 
+
+                    peer.on('open', (id) => {
+                        console.log('My PeerJS ID is: ' + id + ' (derived from CSeed: ' + CSeed + ')');
+                        showNotification(`Conectado à rede P2P (ID: ${id.slice(0,12)}...)`, 'info', 4000);
+                    });
+
+                    peer.on('connection', (dataConnection) => {
+                        console.log('Incoming peer connection attempt from:', dataConnection.peer);
+                        showNotification(`Conexão P2P recebida de: ${dataConnection.peer.slice(0,12)}...`, 'info');
+
+                        dataConnection.on('open', () => {
+                            console.log('Data connection established with incoming peer:', dataConnection.peer);
+                            showNotification(`Conectado com: ${dataConnection.peer.slice(0,12)}`, 'success');
+                            activeConnections[dataConnection.peer] = dataConnection; 
+                            
+                            if (D && D.lastUpdated && dataConnection.open) {
+                                try {
+                                    console.log(`Sending initial data (ts: ${D.lastUpdated}) to ${dataConnection.peer} upon incoming connection.`);
+                                    dataConnection.send(D);
+                                } catch (err) {
+                                    console.error(`Error sending initial data to ${dataConnection.peer}:`, err);
+                                }
+                            }
+                        });
+
+                        dataConnection.on('data', (receivedData) => {
+                            console.log('Received data from ' + dataConnection.peer + ' (timestamp: ' + (receivedData ? receivedData.lastUpdated : 'N/A') + '). Local luts: ' + luts);
+
+                            if (!receivedData || typeof receivedData !== 'object' || !receivedData.hasOwnProperty('lastUpdated') || !receivedData.hasOwnProperty('assignments') || !receivedData.hasOwnProperty('frequency')) {
+                                console.warn('Invalid data structure received from ' + dataConnection.peer + '. Ignoring.');
+                                return;
+                            }
+
+                            if (receivedData.lastUpdated > luts) {
+                                console.log('Received newer data from ' + dataConnection.peer + '. Updating local data.');
+                                D = ensureDataStructure(receivedData); 
+                                luts = D.lastUpdated; 
+
+                                try {
+                                    localStorage.setItem(DK, JSON.stringify(D));
+                                } catch (e) {
+                                    console.error("Falha ao salvar dados recebidos localmente:", e);
+                                    showNotification("Erro ao salvar dados recebidos.", "error");
+                                }
+                                
+                                rAll(); 
+                                showNotification(`Dados atualizados por ${dataConnection.peer.slice(0,12)}`, 'info');
+                            } else if (receivedData.lastUpdated < luts) {
+                                console.log('Received older data from ' + dataConnection.peer + '. Sending my newer version back.');
+                                if (D && typeof D.lastUpdated === 'number' && dataConnection.open) { 
+                                     try {
+                                        console.log(`Sending current D (ts: ${D.lastUpdated}) back to ${dataConnection.peer}.`);
+                                        dataConnection.send(D); 
+                                     } catch (err) {
+                                        console.error(`Error sending current D back to ${dataConnection.peer}:`, err);
+                                     }
+                                }
+                            } else {
+                                console.log('Received data with same timestamp from ' + dataConnection.peer + '. No update needed.');
+                            }
+                        });
+
+                        dataConnection.on('close', () => {
+                            console.log('Data connection closed with:', dataConnection.peer);
+                            showNotification(`Conexão P2P com ${dataConnection.peer.slice(0,12)}... fechada`, 'warning');
+                            delete activeConnections[dataConnection.peer];
+                        });
+
+                        dataConnection.on('error', (err) => {
+                            console.error('Data connection error with ' + dataConnection.peer + ':', err);
+                            showNotification(`Erro na conexão P2P com ${dataConnection.peer.slice(0,12)}...: ${err.type || err.message}`, 'error');
+                            delete activeConnections[dataConnection.peer]; 
+                        });
+                    });
+
+                    peer.on('error', (err) => {
+                        console.error('PeerJS error:', err);
+                        if (typeof showNotification === 'function') {
+                            let errorType = err.type;
+                            let errorMessage = `PeerJS error: ${errorType}`;
+                            if (errorType === 'unavailable-id') {
+                                errorMessage = `ID de Sinc. (${CSeed}) já em uso. Feche outras abas/apps ou tente nova Seed.`;
+                            } else if (errorType === 'network') {
+                                errorMessage = 'Network error with PeerJS. Check your internet connection.';
+                            } else if (errorType === 'webrtc') {
+                                errorMessage = 'WebRTC error. This browser might not fully support PeerJS.';
+                            } else if (errorType === 'peer-unavailable') {
+                                errorMessage = 'Attempted to connect to an unavailable peer.';
+                            }
+                            showNotification(errorMessage, 'error');
+                        }
+                        const initErrorMsgEl = document.getElementById('initErrorMsg');
+                        if (initErrorMsgEl && (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error')) {
+                            initErrorMsgEl.textContent = "Erro crítico ao conectar à rede P2P. Sincronização não funcionará.";
+                            initErrorMsgEl.style.display = 'block';
+                        }
+                    });
+
+                } catch (error) {
+                    console.error("Failed to initialize PeerJS:", error);
+                    if (typeof showNotification === 'function') {
+                        showNotification("Error initializing P2P connection.", "error");
+                    }
+                    const initErrorMsgEl = document.getElementById('initErrorMsg');
+                    if (initErrorMsgEl) {
+                        initErrorMsgEl.textContent = "Failed to initialize P2P synchronization. Please refresh.";
+                        initErrorMsgEl.style.display = 'block';
+                    }
+                }
+            }
 
             const localDataStr = localStorage.getItem(DK);
             if (localDataStr) {
                 const localDataParsed = JSON.parse(localDataStr);
                 D = ensureDataStructure(localDataParsed);
-                // Migração/Normalização de dados antigos (se necessário)
-                D.assignments = D.assignments.map(a => {
-                    if (a && !a.internalType) { // Verifica se precisa de normalização
-                    if (a.isCelebration) a.internalType = ICT;
-                    else if (a.type && a.type.includes('Congresso')) a.internalType = IGT; // Genérico para congresso
-                    else a.internalType = `custom:${a.type || a.id}`; // Tipo personalizado
-                    a.type = _t(a.internalType) || a.type; // Atualiza o nome display
-                    }
-                    return a;
-                }).filter(a => a && a.internalType); // Garante que todos tenham internalType
+                 if (D.lastUpdated) luts = D.lastUpdated; 
             } else {
-                D = { assignments: [], frequency: {} }; // Inicia com dados vazios se não houver local
+                D = { assignments: [], frequency: {}, lastUpdated: 0 }; 
+                 luts = 0; 
             }
-            rAll(); // Renderiza tudo com os dados carregados
+            
+            rAll(); 
             resolve();
         } catch (error) {
             console.error("Erro em lD:", error);
@@ -468,7 +511,8 @@ body.light .highlight-scroll {
                  }
                  reject(error);
             } else {
-                 D = { assignments: [], frequency: {} };
+                 D = { assignments: [], frequency: {}, lastUpdated: 0 };
+                 luts = 0; 
                  rAll();
                  resolve();
             }
@@ -476,36 +520,39 @@ body.light .highlight-scroll {
       });
     }
 
-
     function sD(force = false) {
-      D = ensureDataStructure(D); // Garante que a estrutura de D está correta
+      D = ensureDataStructure(D); 
+
+      D.lastUpdated = Date.now(); 
+      luts = D.lastUpdated; 
+
       try {
-        localStorage.setItem(DK, JSON.stringify(D)); // Salva no localStorage
+        localStorage.setItem(DK, JSON.stringify(D));
       } catch (e) {
         console.error("Falha ao salvar dados localmente:", e);
         showNotification("Erro ao salvar dados localmente.", "error");
       }
 
-      clearTimeout(sDTimeout); // Cancela timeout anterior para evitar escritas múltiplas
-      sDTimeout = setTimeout(() => {
-        if (dbRef && CSeed && navigator.onLine) { // Verifica se Firebase está configurado, seed existe e há conexão
-          // Prepara os dados para o Firebase, garantindo que 'assignments' e 'frequency' existam
-          const dataForFirebase = {
-            assignments: D.assignments || [],
-            frequency: D.frequency || {}
-          };
-          const dataToSend = { data: dataForFirebase, lastUpdated: serverTimestamp() };
+      clearTimeout(sDTimeout); 
 
-          set(dbRef, dataToSend) // Envia para o Firebase
-          .then(() => { luts = Date.now(); /*console.log("Dados salvos no Firebase.");*/ })
-          .catch((error) => {
-            console.error(_t('syncErrorWrite'), error);
-            showNotification(_t('syncErrorWrite'), 'error');
-          });
-        } else if (!navigator.onLine) {
-            showNotification("Você está offline. As alterações serão sincronizadas quando a conexão retornar.", "warning");
+      sDTimeout = setTimeout(() => {
+        if (peer && !peer.disconnected) {
+          const activePeerIds = Object.keys(activeConnections);
+          if (activePeerIds.length > 0) {
+            console.log(`Broadcasting data (timestamp: ${D.lastUpdated}) to ${activePeerIds.length} peers:`, activePeerIds);
+            activePeerIds.forEach(peerId => {
+              const connection = activeConnections[peerId];
+              if (connection && connection.open) {
+                try {
+                  connection.send(D); 
+                } catch (err) {
+                  console.error(`Error sending data to peer ${peerId}:`, err);
+                }
+              }
+            });
+          }
         }
-      }, force ? 0 : 1500); // Salva imediatamente se 'force' for true, senão após 1.5s
+      }, force ? 0 : 1500); 
     }
 
     function gS() {
@@ -583,8 +630,8 @@ body.light .highlight-scroll {
             upcomingAssigns.forEach(a=>{
                 const listItem=document.createElement('li');
                 listItem.className='x36';
-                listItem.dataset.id = a.id; // Adiciona o ID da designação para referência
-                listItem.style.cursor = 'pointer'; // Muda o cursor para indicar clicabilidade
+                listItem.dataset.id = a.id; 
+                listItem.style.cursor = 'pointer'; 
 
                 const typeSpan=document.createElement('span');
                 typeSpan.className='x38';
@@ -598,15 +645,13 @@ body.light .highlight-scroll {
                 listItem.appendChild(dateSpan);
                 uLEl.appendChild(listItem);
 
-                // Adiciona o event listener para rolagem e destaque
                 listItem.addEventListener('click', () => {
                     const assignmentId = listItem.dataset.id;
                     if (!assignmentId) return;
 
                     const allAssignmentsSection = document.getElementById('lS');
-                    // Garante que a seção "Todas Designações" esteja aberta
                     if (allAssignmentsSection && !allAssignmentsSection.classList.contains('x10')) {
-                        tSec('lS', true); // Abre a seção se estiver fechada
+                        tSec('lS', true); 
                     }
 
                     setTimeout(() => {
@@ -617,7 +662,7 @@ body.light .highlight-scroll {
                             targetElement.classList.add('highlight-scroll');
                             setTimeout(() => {
                                 targetElement.classList.remove('highlight-scroll');
-                            }, 3000); // Duração do destaque aumentada para 3 segundos
+                            }, 3000); 
                         } else {
                             console.warn(`Elemento alvo com ID ${assignmentId} não encontrado em #lS.`);
                             showNotification(`Designação não encontrada na lista completa. Pode ser necessário recarregar.`, 'warning');
@@ -647,6 +692,89 @@ body.light .highlight-scroll {
     function hTE(e){tEX=e.changedTouches[0].screenX;tEY=e.changedTouches[0].screenY;hSw();}
     function hSw(){const deltaX=tEX-tSX;const deltaY=tEY-tSY;if(Math.abs(deltaX)>Math.abs(deltaY)&&Math.abs(deltaX)>SM){if(deltaX<0){if(nwEl && !nwEl.disabled){WO++;rWC();sD();}}else{if(pwEl && !pwEl.disabled){WO--;rWC();sD();}}}tSX=0;tSY=0;tEX=0;tEY=0;}
     function iAL(){try{rAll();if(tEl)tEl.dispatchEvent(new Event('change'));tSec('fS',false);tSec('lS',true);}catch(e){console.error("Init App Logic Error:",e);showNotification(_t('appInitError'), 'error'); const initErrorMsgEl = document.getElementById('initErrorMsg'); if(initErrorMsgEl){initErrorMsgEl.textContent = _t('appInitError'); initErrorMsgEl.style.display = 'block';}}}
+    
+    function connectToPeer(targetPeerId) {
+        if (!peer || peer.disconnected) {
+            showNotification("P2P não conectado. Não é possível conectar a outros.", "error");
+            return;
+        }
+        if (targetPeerId === peer.id) {
+            // console.log("Attempting to connect to self, skipping.");
+            return;
+        }
+        if (activeConnections[targetPeerId] && activeConnections[targetPeerId].open) {
+            // console.log("Already connected to " + targetPeerId);
+            return;
+        }
+
+        console.log('Attempting to connect to peer:', targetPeerId);
+        const dataConnection = peer.connect(targetPeerId, { reliable: true });
+
+        dataConnection.on('open', () => {
+            console.log('Outgoing data connection established with:', targetPeerId);
+            showNotification(`Conexão P2P estabelecida com: ${targetPeerId.slice(0,12)}...`, 'success');
+            activeConnections[targetPeerId] = dataConnection;
+
+            if (D && D.lastUpdated && dataConnection.open) {
+                try {
+                    console.log(`Sending initial data (ts: ${D.lastUpdated}) to ${targetPeerId} upon outgoing connection.`);
+                    dataConnection.send(D);
+                } catch (err) {
+                    console.error(`Error sending initial data to ${targetPeerId}:`, err);
+                }
+            }
+        });
+
+        dataConnection.on('data', (receivedData) => {
+            console.log('Received data from ' + dataConnection.peer + ' (timestamp: ' + (receivedData ? receivedData.lastUpdated : 'N/A') + '). Local luts: ' + luts);
+
+            if (!receivedData || typeof receivedData !== 'object' || !receivedData.hasOwnProperty('lastUpdated') || !receivedData.hasOwnProperty('assignments') || !receivedData.hasOwnProperty('frequency')) {
+                console.warn('Invalid data structure received from ' + dataConnection.peer + '. Ignoring.');
+                return;
+            }
+
+            if (receivedData.lastUpdated > luts) {
+                console.log('Received newer data from ' + dataConnection.peer + '. Updating local data.');
+                D = ensureDataStructure(receivedData); 
+                luts = D.lastUpdated; 
+
+                try {
+                    localStorage.setItem(DK, JSON.stringify(D));
+                } catch (e) {
+                    console.error("Falha ao salvar dados recebidos localmente:", e);
+                    showNotification("Erro ao salvar dados recebidos.", "error");
+                }
+                
+                rAll(); 
+                showNotification(`Dados atualizados por ${dataConnection.peer.slice(0,12)}`, 'info');
+            } else if (receivedData.lastUpdated < luts) {
+                console.log('Received older data from ' + dataConnection.peer + '. Sending my newer version back.');
+                if (D && typeof D.lastUpdated === 'number' && dataConnection.open) { 
+                     try {
+                        console.log(`Sending current D (ts: ${D.lastUpdated}) back to ${dataConnection.peer}.`);
+                        dataConnection.send(D); 
+                     } catch (err) {
+                        console.error(`Error sending current D back to ${dataConnection.peer}:`, err);
+                     }
+                }
+            } else {
+                console.log('Received data with same timestamp from ' + dataConnection.peer + '. No update needed.');
+            }
+        });
+
+        dataConnection.on('close', () => {
+            console.log('Outgoing data connection closed with:', targetPeerId);
+            showNotification(`Conexão P2P com ${targetPeerId.slice(0,12)}... fechada`, 'warning');
+            delete activeConnections[targetPeerId];
+        });
+
+        dataConnection.on('error', (err) => {
+            console.error('Outgoing data connection error with ' + targetPeerId + ':', err);
+            showNotification(`Erro na conexão P2P com ${targetPeerId.slice(0,12)}...: ${err.type || err.message}`, 'error');
+            delete activeConnections[targetPeerId]; 
+        });
+    }
+
     function sEL(){
         if(thEl)thEl.addEventListener('click',tTh);
         if(mEl)mEl.addEventListener('click',(e)=>{if(e.target===mEl){hAM();}});
@@ -663,49 +791,68 @@ body.light .highlight-scroll {
         if(nwEl)nwEl.addEventListener('click',()=>{if(!nwEl.disabled){WO++;rWC();sD();}});
         if(gEl)gEl.addEventListener('click',hCMC);
         if(cCEl){cCEl.addEventListener('touchstart',hTS,{passive:true});cCEl.addEventListener('touchend',hTE,{passive:true});}
-        if(vSB) vSB.addEventListener('click', () => { if (CSeed) { showNotification(`${_t('viewSeedTitle')}: ${CSeed}`, 'info', 5000); } else { showNotification(_t('viewSeedNone'), 'warning'); } });
-        window.addEventListener('online', () => {showNotification("Conexão restaurada!", "success");fetchDataFromFirebase();if (!fetchIntervalId) {fetchIntervalId = setInterval(fetchDataFromFirebase, FETCH_INTERVAL);}});
-        window.addEventListener('offline', () => {showNotification("Você está offline. Algumas funcionalidades podem ser limitadas.", "warning");clearInterval(fetchIntervalId);fetchIntervalId = null;});
+        
+        if(vSB) vSB.addEventListener('click', () => { 
+            if (CSeed) { 
+                showNotification(`Sua ID de Sincronização P2P: ${CSeed}`, 'info', 7000); 
+            } else { 
+                showNotification(_t('viewSeedNone'), 'warning'); 
+            } 
+        });
+        
+        window.addEventListener('online', () => {
+            showNotification("Conexão à internet restaurada!", "success");
+        });
+        window.addEventListener('offline', () => {
+            showNotification("Você está offline da internet. Sincronização P2P pode ser limitada.", "warning");
+        });
     }
 
     async function init(){
       try {
         lThP();
         sEL();
-        currentDayString = gTYMD(); // Define o dia atual na inicialização
-        await lD(); // Carrega os dados (locais ou da seed)
-        iAL(); // Inicializa a lógica principal do aplicativo (renderiza tudo)
+        currentDayString = gTYMD(); 
+        await lD(); 
+        iAL(); 
 
-        // Configura a busca de dados do Firebase se online
-        if (navigator.onLine) {
-          fetchDataFromFirebase(); // Busca inicial
-          fetchIntervalId = setInterval(fetchDataFromFirebase, FETCH_INTERVAL); // Busca periódica
-        } else {
-          showNotification("App iniciado offline. Dados podem estar desatualizados.", "warning");
-        }
-
-        // Verifica a mudança de dia para atualizar a UI (ex: calendário, designações do "dia")
         setInterval(() => {
           const newDayString = gTYMD();
           if (newDayString !== currentDayString) {
             currentDayString = newDayString;
-            try { iAL(); } // Re-renderiza se o dia mudou
+            try { iAL(); } 
             catch (e) { console.error("Erro ao atualizar UI após mudança de dia:", e); showNotification(_t('genericError'), 'error');}
           }
-        }, 60000); // Verifica a cada minuto
+        }, 60000); 
       } catch (error) {
         console.error("Falha na inicialização principal:", error);
         const initErrorMsgEl = document.getElementById('initErrorMsg');
         if (initErrorMsgEl) {
-            initErrorMsgEl.textContent = _t('appInitError'); // Exibe mensagem de erro crítica
+            initErrorMsgEl.textContent = _t('appInitError'); 
             initErrorMsgEl.style.display = 'block';
         }
-        // Não executar mais nada se a inicialização crítica falhar
       }
+      // --- For P2P Testing Purposes Only ---
+      window.dbg = {
+          getPeerId: () => peer ? peer.id : 'Peer not initialized',
+          connectToPeer: (targetId) => {
+              if (!targetId) {
+                  console.error('Target ID needed for connectToPeer.');
+                  return;
+              }
+              connectToPeer(targetId);
+          },
+          getActiveConnections: () => Object.keys(activeConnections),
+          getLocalData: () => D,
+          getLocalLuts: () => luts,
+          forceSaveAndBroadcast: () => sD(true),
+          listTXT: () => console.table(TXT) 
+      };
+      console.log("P2P Debugging tools available under window.dbg");
+      // --- End P2P Testing ---
     }
-    init(); // Inicia o aplicativo
+    init(); 
   });
 </script>
 </body>
 </html>
-
