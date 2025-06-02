@@ -342,6 +342,8 @@ body.light .highlight-scroll {
     let D={assignments:[],frequency:{}};let WO=0;let ATM=null;let tSX=0,tSY=0,tEX=0,tEY=0;const SM=50;
     let CSeed = null;
     let peer = null; 
+    let myUniquePeerId = null; // For server-assigned PeerJS ID
+    let isRendezvousPeer = false; // Will this instance attempt to become the rendezvous point?
     let activeConnections = {}; 
     let sDTimeout = null;
     let luts = 0; 
@@ -361,6 +363,14 @@ body.light .highlight-scroll {
       return ensured;
     }
 
+    function getRendezvousId(seed) {
+        if (!seed || typeof seed !== 'string' || seed.trim() === '') {
+            console.error("Cannot generate rendezvous ID: CSeed is invalid.");
+            return null; 
+        }
+        return 'rendezvous--' + seed;
+    }
+
     function lD() {
       return new Promise(async (resolve, reject) => {
         try {
@@ -376,11 +386,26 @@ body.light .highlight-scroll {
 
             if (CSeed) {
                 try {
-                    peer = new Peer(CSeed); 
+                    peer = new Peer(); // Initialize with no specific ID to get a server-assigned one
 
                     peer.on('open', (id) => {
-                        console.log('My PeerJS ID is: ' + id + ' (derived from CSeed: ' + CSeed + ')');
-                        showNotification(`Conectado à rede P2P (ID: ${id.slice(0,12)}...)`, 'info', 4000);
+                        if (id) { 
+                            myUniquePeerId = id; 
+                            console.log('My unique PeerJS ID is: ' + myUniquePeerId + ' (for CSeed: ' + CSeed + ')');
+                            showNotification(`P2P Conectado (ID: ${myUniquePeerId.slice(0,12)}...)`, 'info', 4000); 
+                            
+                            console.log("Unique PeerID obtained. Next step will be to attempt to join/form rendezvous group for CSeed: " + CSeed);
+                            // Placeholder: attemptToJoinRendezvousGroup(); 
+
+                        } else {
+                            console.error("PeerJS opened but did not provide an ID. Cannot proceed with P2P.");
+                            showNotification("Erro crítico na rede P2P: ID não obtido.", "error");
+                            const initErrorMsgEl = document.getElementById('initErrorMsg');
+                            if (initErrorMsgEl) {
+                                initErrorMsgEl.textContent = "Erro crítico na conexão P2P. Sincronização não funcionará.";
+                                initErrorMsgEl.style.display = 'block';
+                            }
+                        }
                     });
 
                     peer.on('connection', (dataConnection) => {
@@ -458,7 +483,9 @@ body.light .highlight-scroll {
                             let errorType = err.type;
                             let errorMessage = `PeerJS error: ${errorType}`;
                             if (errorType === 'unavailable-id') {
-                                errorMessage = `ID de Sinc. (${CSeed}) já em uso. Feche outras abas/apps ou tente nova Seed.`;
+                                // This specific error might be less common now that we use server-assigned IDs for the peer itself.
+                                // However, it could still occur if the manually constructed rendezvous ID clashes.
+                                errorMessage = `ID de Sinc. (${CSeed} ou derivado) já em uso. Feche outras abas/apps ou tente nova Seed.`;
                             } else if (errorType === 'network') {
                                 errorMessage = 'Network error with PeerJS. Check your internet connection.';
                             } else if (errorType === 'webrtc') {
@@ -469,7 +496,7 @@ body.light .highlight-scroll {
                             showNotification(errorMessage, 'error');
                         }
                         const initErrorMsgEl = document.getElementById('initErrorMsg');
-                        if (initErrorMsgEl && (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error')) {
+                        if (initErrorMsgEl && (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'disconnected')) {
                             initErrorMsgEl.textContent = "Erro crítico ao conectar à rede P2P. Sincronização não funcionará.";
                             initErrorMsgEl.style.display = 'block';
                         }
@@ -698,8 +725,8 @@ body.light .highlight-scroll {
             showNotification("P2P não conectado. Não é possível conectar a outros.", "error");
             return;
         }
-        if (targetPeerId === peer.id) {
-            // console.log("Attempting to connect to self, skipping.");
+        if (targetPeerId === myUniquePeerId) { // Connect to self by unique ID is not logical here.
+            console.log("Attempting to connect to self (myUniquePeerId), skipping. Target: " + targetPeerId + ", My ID: " + myUniquePeerId);
             return;
         }
         if (activeConnections[targetPeerId] && activeConnections[targetPeerId].open) {
@@ -794,7 +821,8 @@ body.light .highlight-scroll {
         
         if(vSB) vSB.addEventListener('click', () => { 
             if (CSeed) { 
-                showNotification(`Sua ID de Sincronização P2P: ${CSeed}`, 'info', 7000); 
+                const rendezvousId = getRendezvousId(CSeed);
+                showNotification(`Sua ID de Sincronização P2P: ${CSeed} (Rendezvous: ${rendezvousId ? rendezvousId.slice(0,22) : 'N/A'}..., Unique: ${myUniquePeerId ? myUniquePeerId.slice(0,12) : 'N/A'}...)`, 'info', 10000); 
             } else { 
                 showNotification(_t('viewSeedNone'), 'warning'); 
             } 
@@ -834,7 +862,10 @@ body.light .highlight-scroll {
       }
       // --- For P2P Testing Purposes Only ---
       window.dbg = {
-          getPeerId: () => peer ? peer.id : 'Peer not initialized',
+          getPeerId: () => peer ? peer.id : 'Peer not initialized', // This will show the unique server-assigned ID
+          getMyUniquePeerId: () => myUniquePeerId,
+          getCSeed: () => CSeed,
+          getRendezvousIdForSeed: (s) => getRendezvousId(s || CSeed),
           connectToPeer: (targetId) => {
               if (!targetId) {
                   console.error('Target ID needed for connectToPeer.');
