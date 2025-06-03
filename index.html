@@ -456,20 +456,30 @@ body.light .highlight-scroll {
                         console.error('PeerJS error:', err);
                         if (typeof showNotification === 'function') {
                             let errorType = err.type;
-                            let errorMessage = `PeerJS error: ${errorType}`;
                             if (errorType === 'unavailable-id') {
-                                errorMessage = `ID de Sinc. (${CSeed}) já em uso. Feche outras abas/apps ou tente nova Seed.`;
-                            } else if (errorType === 'network') {
-                                errorMessage = 'Network error with PeerJS. Check your internet connection.';
-                            } else if (errorType === 'webrtc') {
-                                errorMessage = 'WebRTC error. This browser might not fully support PeerJS.';
-                            } else if (errorType === 'peer-unavailable') {
-                                errorMessage = 'Attempted to connect to an unavailable peer.';
+                                console.log('PeerJS: ID unavailable, attempting to connect to existing peer with CSeed:', CSeed);
+                                showNotification(`Tentando conectar a uma sessão existente com esta Seed... (${CSeed.slice(0,12)}...)`, 'info');
+                                connectToPeer(CSeed); // Attempt to connect to the existing peer
+                                // Do not show the original error message in this case
+                            } else {
+                                let errorMessage = `PeerJS error: ${errorType}`;
+                                if (errorType === 'network') {
+                                    errorMessage = 'Network error with PeerJS. Check your internet connection.';
+                                } else if (errorType === 'webrtc') {
+                                    errorMessage = 'WebRTC error. This browser might not fully support PeerJS.';
+                                } else if (errorType === 'peer-unavailable') {
+                                    errorMessage = 'Attempted to connect to an unavailable peer.';
+                                }
+                                // Only show notification for other errors
+                                showNotification(errorMessage, 'error');
                             }
-                            showNotification(errorMessage, 'error');
                         }
                         const initErrorMsgEl = document.getElementById('initErrorMsg');
-                        if (initErrorMsgEl && (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error')) {
+                        // Show critical error message for network/server/socket errors,
+                        // but not for 'unavailable-id' if we are attempting connection.
+                        if (initErrorMsgEl &&
+                            (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error') &&
+                            err.type !== 'unavailable-id') { // Added condition here
                             initErrorMsgEl.textContent = "Erro crítico ao conectar à rede P2P. Sincronização não funcionará.";
                             initErrorMsgEl.style.display = 'block';
                         }
