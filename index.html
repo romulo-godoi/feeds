@@ -364,19 +364,44 @@ body.light .highlight-scroll {
     function lD() {
       return new Promise(async (resolve, reject) => {
         try {
-            CSeed = localStorage.getItem(SK);
-            if (!CSeed) {
-                CSeed = await gSFP(); 
-                localStorage.setItem(SK, CSeed); 
-                showNotification(_t('seedSavedSuccess'), 'success');
-            }
-             if (!CSeed) { 
-                 throw new Error("Seed não fornecida ou inválida.");
+            let seedRequiresSave = false;
+            try {
+                CSeed = localStorage.getItem(SK);
+                if (!CSeed) {
+                    CSeed = await gSFP(); // gSFP shows its own modals
+                    seedRequiresSave = true; // Mark that we need to save this new seed
+                }
+            } catch (e) {
+                console.error("Erro ao ACESSAR a Seed do localStorage:", e);
+                showNotification("Erro CRÍTICO ao acessar a Seed de sincronização. Verifique as permissões de cookies/armazenamento do navegador.", "error", 10000);
+                document.getElementById('initErrorMsg').textContent = "ERRO: Não é possível ler a Seed. Verifique permissões de armazenamento/cookies.";
+                document.getElementById('initErrorMsg').style.display = 'block';
+                throw e; // Stop execution of lD
             }
 
+            if (!CSeed) { // If gSFP failed or returned nothing
+                 document.getElementById('initErrorMsg').textContent = "ERRO: Seed de sincronização não pôde ser obtida ou gerada.";
+                 document.getElementById('initErrorMsg').style.display = 'block';
+                 throw new Error("Seed de sincronização não disponível.");
+            }
+
+            if (seedRequiresSave) {
+                try {
+                    localStorage.setItem(SK, CSeed);
+                    showNotification(_t('seedSavedSuccess'), 'success');
+                } catch (e) {
+                    console.error("Erro ao SALVAR a nova Seed no localStorage:", e);
+                    showNotification("Erro CRÍTICO ao salvar nova Seed. Verifique as permissões de cookies/armazenamento.", "error", 10000);
+                    document.getElementById('initErrorMsg').textContent = "ERRO: Não é possível salvar a Seed. Verifique permissões de armazenamento/cookies.";
+                    document.getElementById('initErrorMsg').style.display = 'block';
+                    throw e; // Stop execution
+                }
+            }
+
+            // PeerJS initialization using CSeed follows...
             if (CSeed) {
                 try {
-                    peer = new Peer(CSeed); 
+                    peer = new Peer(CSeed);
 
                     peer.on('open', (id) => {
                         console.log('My PeerJS ID is: ' + id + ' (derived from CSeed: ' + CSeed + ')');
@@ -498,34 +523,39 @@ body.light .highlight-scroll {
                 }
             }
 
-            const localDataStr = localStorage.getItem(DK);
-            if (localDataStr) {
-                const localDataParsed = JSON.parse(localDataStr);
-                D = ensureDataStructure(localDataParsed);
-                 if (D.lastUpdated) luts = D.lastUpdated; 
-            } else {
-                D = { assignments: [], frequency: {}, lastUpdated: 0 }; 
-                 luts = 0; 
+            let localDataStr;
+            try {
+                localDataStr = localStorage.getItem(DK);
+                if (localDataStr) {
+                    const localDataParsed = JSON.parse(localDataStr); // JSON.parse can throw SyntaxError
+                    D = ensureDataStructure(localDataParsed);
+                    if (D.lastUpdated) luts = D.lastUpdated;
+                } else {
+                    D = { assignments: [], frequency: {}, lastUpdated: 0 };
+                    luts = 0;
+                }
+            } catch (e) {
+                console.error("Erro ao carregar/parsear dados do localStorage (DK):", e);
+                showNotification("Atenção: Não foi possível carregar dados salvos. Verifique permissões de cookies/armazenamento. Iniciando com dados vazios.", "warning", 7000);
+                D = { assignments: [], frequency: {}, lastUpdated: 0 }; // Fallback to empty data
+                luts = 0;
             }
             
             rAll(); 
             resolve();
         } catch (error) {
-            console.error("Erro em lD:", error);
-            showNotification(error.message === "Seed não fornecida ou inválida." ? error.message : _t('dataLoadError'), 'error');
-            if (error.message === "Seed não fornecida ou inválida.") {
+            console.error("Erro em lD (outer catch):", error);
+            // Notification for seed-related issues already handled in inner try-catch blocks
+            // This catch will primarily handle errors re-thrown from those blocks or other unexpected errors in lD
+            if (!document.getElementById('initErrorMsg').textContent) { // Avoid overwriting more specific messages
+                 showNotification(_t('dataLoadError'), 'error');
                  const initErrorMsgEl = document.getElementById('initErrorMsg');
                  if (initErrorMsgEl) {
-                    initErrorMsgEl.textContent = "Seed de sincronização não configurada. O aplicativo não pode funcionar.";
+                    initErrorMsgEl.textContent = "Erro crítico na inicialização dos dados. O app pode não funcionar.";
                     initErrorMsgEl.style.display = 'block';
                  }
-                 reject(error);
-            } else {
-                 D = { assignments: [], frequency: {}, lastUpdated: 0 };
-                 luts = 0; 
-                 rAll();
-                 resolve();
             }
+            reject(error); // Ensure promise is rejected so init() catches it
         }
       });
     }
@@ -540,10 +570,10 @@ body.light .highlight-scroll {
         localStorage.setItem(DK, JSON.stringify(D));
       } catch (e) {
         console.error("Falha ao salvar dados localmente:", e);
-        showNotification("Erro ao salvar dados localmente.", "error");
+        showNotification("Erro ao salvar dados no armazenamento local. Verifique permissões.", "error");
       }
 
-      clearTimeout(sDTimeout); 
+      clearTimeout(sDTimeout);
 
       sDTimeout = setTimeout(() => {
         if (peer && !peer.disconnected) {
@@ -718,10 +748,11 @@ body.light .highlight-scroll {
         }
 
         console.log('Attempting to connect to peer:', targetPeerId);
-        const dataConnection = peer.connect(targetPeerId, { reliable: true });
+        try {
+            const dataConnection = peer.connect(targetPeerId, { reliable: true });
 
-        dataConnection.on('open', () => {
-            console.log('Outgoing data connection established with:', targetPeerId);
+            dataConnection.on('open', () => {
+                console.log('Outgoing data connection established with:', targetPeerId);
             showNotification(`Conexão P2P estabelecida com: ${targetPeerId.slice(0,12)}...`, 'success');
             activeConnections[targetPeerId] = dataConnection;
 
@@ -778,11 +809,22 @@ body.light .highlight-scroll {
             delete activeConnections[targetPeerId];
         });
 
-        dataConnection.on('error', (err) => {
-            console.error('Outgoing data connection error with ' + targetPeerId + ':', err);
-            showNotification(`Erro na conexão P2P com ${targetPeerId.slice(0,12)}...: ${err.type || err.message}`, 'error');
-            delete activeConnections[targetPeerId]; 
-        });
+            dataConnection.on('error', (err) => { // This is the handler we are modifying above
+                console.error('Outgoing data connection error with ' + targetPeerId + ':', err);
+                let userMessage = `Falha ao conectar com o par ${targetPeerId.slice(0,12)}... (${err.type || err.message}).`;
+                if (err.type === 'browser-incompatible' || err.type === 'webrtc-unsupported' || err.type === 'network' || err.type === 'disconnected' || err.type === 'peer-unavailable') {
+                    userMessage += " Verifique sua conexão com a internet e as configurações de privacidade/rastreamento do seu navegador, pois podem estar bloqueando conexões P2P.";
+                } else {
+                     userMessage += " Verifique as configurações de privacidade/rastreamento do seu navegador (bloqueio de cookies/armazenamento) ou tente uma rede diferente.";
+                }
+                showNotification(userMessage, 'error', 7000); // Increased duration
+                delete activeConnections[targetPeerId];
+            });
+
+        } catch (error) {
+            console.error('Error initiating connection to ' + targetPeerId + ':', error);
+            showNotification(`Erro ao iniciar conexão com ${targetPeerId.slice(0,12)}...: ${error.message}. Verifique as configurações de privacidade/rastreamento do seu navegador.`, 'error', 7000);
+        }
     }
 
     function sEL(){
